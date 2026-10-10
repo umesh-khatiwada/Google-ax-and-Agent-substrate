@@ -18,6 +18,7 @@ KNOWN_ROLES = {
             {"name": "check_network", "description": "Inspects sandbox network interfaces, listening sockets, and egress routing"},
             {"name": "list_processes", "description": "Enumerates all running processes inside the sandbox actor"},
             {"name": "get_system_info", "description": "Retrieves operating system details, kernel release, and environment"},
+            {"name": "verify_gvisor_isolation", "description": "Verifies Google gVisor kernel sandboxing and Substrate isolation boundaries"},
             {"name": "scan_cve_database", "description": "Scans package and kernel CVE database for vulnerabilities"}
         ]
     },

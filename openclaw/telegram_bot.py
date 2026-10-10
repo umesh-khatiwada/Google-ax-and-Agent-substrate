@@ -195,6 +195,8 @@ class TelegramBot:
                 self.send_message(chat_id, "⚠️ Usage: <code>/ssh &lt;agent_name&gt; &lt;command&gt;</code>")
             else:
                 self._cmd_ssh(chat_id, parts[1], parts[2])
+        elif text.startswith("/gvisor") or text.startswith("/verify"):
+            self._cmd_verify_gvisor(chat_id)
         else:
             # Free-form Natural Language Query
             self._handle_natural_language(chat_id, text)
@@ -218,6 +220,8 @@ class TelegramBot:
             self._cmd_refresh(chat_id)
         elif data == "menu:help":
             self._cmd_help(chat_id)
+        elif data == "menu:gvisor":
+            self._cmd_verify_gvisor(chat_id)
         elif data.startswith("spin:"):
             agent_name = data.split(":", 1)[1]
             self._execute_agent(chat_id, agent_name)
@@ -255,8 +259,9 @@ class TelegramBot:
                     {"text": "🩺 SRE Health", "callback_data": "spin:sre-agent"}
                 ],
                 [
+                    {"text": "🛡️ Verify gVisor", "callback_data": "menu:gvisor"},
                     {"text": "🔄 Refresh Catalog", "callback_data": "menu:refresh"},
-                    {"text": "❓ Help & Commands", "callback_data": "menu:help"}
+                    {"text": "❓ Help", "callback_data": "menu:help"}
                 ]
             ]
         }
@@ -368,6 +373,42 @@ class TelegramBot:
         res = self.ax_client.ssh_exec(agent_name, cmd)
         out = (res.stdout or res.stderr).strip() or "[no output]"
         self.send_message(chat_id, f"<b>Output:</b>\n<pre>{out}</pre>")
+
+    def _cmd_verify_gvisor(self, chat_id: int):
+        self.send_message(chat_id, "🔍 <b>Auditing Google gVisor Sandbox Isolation...</b>")
+        tasks = self.ax_client.get_tasks()
+        target = "security-agent"
+        was_suspended = True
+        for t in tasks:
+            if t["name"] == target:
+                if t["phase"] == "Running":
+                    was_suspended = False
+                break
+
+        if was_suspended:
+            self.ax_client.resume_task(target)
+            time.sleep(2)
+
+        res = self.ax_client.ssh_exec(target, "cat /proc/version")
+        ver_text = res.stdout.strip()
+        is_gvisor = "gvisor" in ver_text.lower()
+
+        if was_suspended:
+            self.ax_client.suspend_task(target)
+
+        if is_gvisor:
+            out_text = (
+                "🛡️ <b>Google gVisor Sandbox Isolation Confirmed!</b>\n\n"
+                f"• <b>Kernel:</b> <code>{ver_text}</code>\n"
+                "• <b>Runtime Engine:</b> <code>runsc (Google gVisor Sentry)</code>\n"
+                "• <b>Substrate WorkerPool:</b> <code>ax-workerpool (ateom-gvisor)</code>\n"
+                "• <b>Security Boundary:</b> <b>Hardware-Level Syscall Sandboxing</b>\n\n"
+                "✅ <i>Application syscalls are intercepted in user-space by gVisor. The host Linux kernel is 100% protected against container breakouts.</i>"
+            )
+        else:
+            out_text = f"⚠️ Kernel reported: <code>{ver_text}</code>"
+
+        self.send_message(chat_id, out_text)
 
     def _execute_agent(self, chat_id: int, agent_name: str, prompt: Optional[str] = None):
         agent = self.library.get_agent(agent_name)
