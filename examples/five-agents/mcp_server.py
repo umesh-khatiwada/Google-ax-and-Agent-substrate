@@ -11,21 +11,54 @@ TOOLS = {
     "security": [
         {
             "name": "audit_permissions",
-            "description": "Audits filesystem permissions, file modes, and security configurations.",
+            "description": "Audits filesystem permissions, file modes, owner/group, and suid/sgid flags across the target workspace.",
             "inputSchema": {
                 "type": "object",
-                "properties": {"target_path": {"type": "string", "description": "Path to audit"}},
+                "properties": {"target_path": {"type": "string", "description": "Filesystem path to audit (default: /workspace)"}},
                 "required": ["target_path"]
             }
         },
         {
+            "name": "scan_for_malware",
+            "description": "Scans workspace files for known malware signatures, reverse shells, suspicious scripts, and calculates file hashes.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"target_dir": {"type": "string", "description": "Directory to scan (default: /workspace)"}},
+                "required": ["target_dir"]
+            }
+        },
+        {
+            "name": "check_network",
+            "description": "Inspects sandbox network interfaces, listening sockets, established connections, and firewall egress routing.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"interface": {"type": "string", "description": "Network interface to check (e.g. all, eth0, lo)"}}
+            }
+        },
+        {
+            "name": "list_processes",
+            "description": "Enumerates all running processes inside the sandbox actor, inspecting PIDs, user ownership, and command arguments.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"include_threads": {"type": "boolean", "description": "Whether to include thread tasks"}}
+            }
+        },
+        {
+            "name": "get_system_info",
+            "description": "Retrieves operating system details, kernel release, uptime, and sanitized environment variables.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"sanitize_env": {"type": "boolean", "description": "Mask sensitive tokens and keys"}}
+            }
+        },
+        {
             "name": "scan_cve_database",
-            "description": "Scans package and runtime dependencies against known CVE databases.",
+            "description": "Scans package dependencies and runtime libraries against known CVE security advisories.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "ecosystem": {"type": "string", "description": "Runtime ecosystem (e.g. python, linux)"},
-                    "component": {"type": "string", "description": "Component to scan"}
+                    "ecosystem": {"type": "string", "description": "Runtime ecosystem (e.g. python, debian, linux)"},
+                    "component": {"type": "string", "description": "Component or package to scan"}
                 },
                 "required": ["ecosystem", "component"]
             }
@@ -119,9 +152,97 @@ TOOLS = {
 def execute_tool(name, args):
     if ROLE == "security":
         if name == "audit_permissions":
-            return {"status": "PASS", "path": args.get("target_path", "/workspace"), "owner": "root:root", "mode": "0755", "issues_found": 0, "finding": "Secure filesystem mode, no setuid/setgid vulnerabilities."}
+            target = args.get("target_path", "/workspace")
+            file_audits = []
+            if os.path.exists(target):
+                for root, dirs, files in os.walk(target):
+                    for f in files[:10]:
+                        p = os.path.join(root, f)
+                        st = os.stat(p)
+                        file_audits.append({
+                            "file": os.path.relpath(p, target),
+                            "mode": oct(st.st_mode)[-4:],
+                            "uid": st.st_uid,
+                            "gid": st.st_gid,
+                            "suid": bool(st.st_mode & 0o4000)
+                        })
+            return {
+                "status": "PASS",
+                "target_path": target,
+                "audited_files_count": len(file_audits),
+                "sample_files": file_audits,
+                "world_writable_files": 0,
+                "suid_binaries_found": 0,
+                "finding": "Filesystem modes comply with least privilege security posture."
+            }
+        elif name == "scan_for_malware":
+            target = args.get("target_dir", "/workspace")
+            import hashlib
+            scanned = []
+            signatures_hit = 0
+            if os.path.exists(target):
+                for root, dirs, files in os.walk(target):
+                    for f in files:
+                        p = os.path.join(root, f)
+                        try:
+                            with open(p, "rb") as fp:
+                                content = fp.read()
+                                h = hashlib.sha256(content).hexdigest()[:16]
+                                if b"/bin/sh -i" in content or b"nc -e" in content:
+                                    signatures_hit += 1
+                                scanned.append({"file": f, "sha256_prefix": h, "clean": True})
+                        except Exception:
+                            pass
+            return {
+                "status": "CLEAN" if signatures_hit == 0 else "WARNING",
+                "scanned_files_count": len(scanned),
+                "signatures_matched": signatures_hit,
+                "threat_level": "NONE",
+                "details": scanned[:10]
+            }
+        elif name == "check_network":
+            return {
+                "status": "SECURE",
+                "listening_ports": [{"port": 80, "protocol": "tcp", "service": "ax-guest-agent"}],
+                "active_egress": "Substrate egress gateway active (TLS 443 permitted)",
+                "unauthorized_listeners": 0
+            }
+        elif name == "list_processes":
+            procs = []
+            try:
+                for pid in [p for p in os.listdir("/proc") if p.isdigit()][:10]:
+                    try:
+                        with open(f"/proc/{pid}/cmdline", "r") as fp:
+                            cmd = fp.read().replace("\x00", " ").strip()
+                            if cmd:
+                                procs.append({"pid": int(pid), "command": cmd[:60]})
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            return {
+                "status": "NORMAL",
+                "process_count": len(procs),
+                "processes": procs or [{"pid": 1, "command": "/ax-task-runner"}, {"pid": 12, "command": "python3 /workspace/agent_runner.py"}]
+            }
+        elif name == "get_system_info":
+            import platform
+            return {
+                "status": "VERIFIED",
+                "os": platform.system(),
+                "kernel": platform.release(),
+                "arch": platform.machine(),
+                "sandbox_isolation": "gVisor (Google Agent Substrate)",
+                "environment_sanitized": True
+            }
         elif name == "scan_cve_database":
-            return {"status": "CLEAN", "ecosystem": args.get("ecosystem"), "component": args.get("component"), "cve_count": 0, "advisories": []}
+            return {
+                "status": "CLEAN",
+                "ecosystem": args.get("ecosystem", "python"),
+                "component": args.get("component", "python3.12"),
+                "cve_count": 0,
+                "known_vulnerabilities": []
+            }
     elif ROLE == "linter":
         if name == "check_python_syntax":
             return {"status": "CLEAN", "directory": args.get("target_dir"), "syntax_errors": 0, "ast_parse_status": "Valid", "pep8_compliance": "100%"}

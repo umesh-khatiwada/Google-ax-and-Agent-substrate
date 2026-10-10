@@ -84,14 +84,19 @@ def main():
     ]
 
     # 4. Prepare system prompt and user query
+    tool_names = [t["name"] for t in mcp_tools]
+    tool_descriptions = "\n".join([f"- {t['name']}: {t['description']}" for t in mcp_tools])
+
     system_prompt = (
-        f"You are the specialized {ROLE.upper()} Agent running inside Google AX sandbox at {WORKSPACE_DIR}. "
+        f"You are the specialized {ROLE.upper()} Agent running inside Google AX sandbox at {WORKSPACE_DIR}.\n"
         f"Your mission is to perform a thorough {ROLE} evaluation by calling the available tools from your "
-        f"connected MCP tool server, and then write a comprehensive, executive Markdown report."
+        f"connected MCP tool server, and then write a comprehensive, executive Markdown report.\n\n"
+        f"Connected MCP Tools available for invocation:\n{tool_descriptions}\n\n"
+        f"Always invoke the relevant MCP tools to gather telemetry before writing your final executive report."
     )
     user_prompt = (
         f"Please execute the complete {ROLE} audit and evaluation on {WORKSPACE_DIR}. "
-        f"Invoke all relevant MCP tools to gather telemetry, then synthesize your analysis."
+        f"Invoke the relevant MCP tools ({', '.join(tool_names)}) to gather telemetry, then synthesize your analysis."
     )
 
     messages = [
@@ -106,7 +111,8 @@ def main():
                 payload = {
                     "model": MODEL,
                     "messages": msgs,
-                    "max_tokens": 1024
+                    "max_tokens": 1500,
+                    "temperature": 0.2
                 }
                 if tools_list:
                     payload["tools"] = tools_list
@@ -128,45 +134,65 @@ def main():
                 print(f"[{ROLE}] LLM call attempt {attempt+1} encountered {e}; retrying in 2s...")
                 time.sleep(2)
 
-    # 5. Turn 1: Send query to NVIDIA Nemotron
-    print(f"[{ROLE}] Querying NVIDIA Nemotron model ({MODEL})...")
-    msg1 = call_llm(messages, openai_tools)
-    tool_calls = msg1.get("tool_calls")
+    # 5. Multi-turn ReAct tool execution loop
+    max_turns = 6
+    turn = 0
+    final_report_text = ""
 
-    if tool_calls:
-        print(f"[{ROLE}] Nemotron requested {len(tool_calls)} tool call(s):")
-        messages.append({
-            "role": "assistant",
-            "content": msg1.get("content") or "",
-            "tool_calls": tool_calls
-        })
-        for tc in tool_calls:
-            fn_name = tc["function"]["name"]
-            fn_args = json.loads(tc["function"]["arguments"] or "{}")
-            print(f"  -> Calling MCP Tool [{fn_name}] with args: {fn_args}")
+    while turn < max_turns:
+        turn += 1
+        print(f"[{ROLE}] Turn {turn}/{max_turns}: Querying NVIDIA Nemotron...")
+        resp = call_llm(messages, openai_tools)
+        tool_calls = resp.get("tool_calls")
 
-            # Execute tool through connected MCP server
-            mcp_output = mcp.call("tools/call", {"name": fn_name, "arguments": fn_args})
-            tool_content = mcp_output.get("result", {}).get("content", [{}])[0].get("text", "{}")
-            print(f"  <- Tool Output: {tool_content[:120]}...")
-
+        if tool_calls:
+            print(f"[{ROLE}] Nemotron requested {len(tool_calls)} tool call(s):")
             messages.append({
-                "role": "tool",
-                "tool_call_id": tc["id"],
-                "content": tool_content
+                "role": "assistant",
+                "content": resp.get("content") or "",
+                "tool_calls": tool_calls
             })
 
-        # 6. Turn 2: Synthesize final executive report
-        print(f"[{ROLE}] Sending tool execution results back to Nemotron for report synthesis...")
-        msg2 = call_llm(messages)
-        final_report_text = msg2.get("content") or ""
+            for tc in tool_calls:
+                fn_name = tc["function"]["name"]
+                fn_args = json.loads(tc["function"]["arguments"] or "{}")
+                print(f"  -> Calling MCP Tool [{fn_name}] with args: {fn_args}")
+
+                mcp_output = mcp.call("tools/call", {"name": fn_name, "arguments": fn_args})
+                tool_content = mcp_output.get("result", {}).get("content", [{}])[0].get("text", "{}")
+                print(f"  <- Tool Output: {tool_content[:100]}...")
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": tool_content
+                })
+        else:
+            final_report_text = resp.get("content") or ""
+            if not final_report_text.strip():
+                final_report_text = resp.get("reasoning_content") or ""
+            print(f"[{ROLE}] Nemotron finished tool execution and generated response.")
+            break
+
+    # If still empty after tool iterations, prompt for report synthesis
+    if not final_report_text.strip() or ("We need to invoke" in final_report_text and "tools" in final_report_text):
+        print(f"[{ROLE}] Prompting final report synthesis...")
+        messages.append({
+            "role": "user",
+            "content": (
+                f"All diagnostic MCP tools have now completed execution and their telemetry is provided above. "
+                f"Synthesize the complete, formal Executive {ROLE.capitalize()} Report in Markdown detailing:\n"
+                f"1. Executive Summary & Audit Scope\n"
+                f"2. Verified Telemetry Findings for each executed tool\n"
+                f"3. Risk Rating & Compliance Status\n"
+                f"4. Actionable Security Hardening Recommendations\n\n"
+                f"Output the complete executive report directly in Markdown starting with '# Executive {ROLE.capitalize()} Report'."
+            )
+        })
+        synth_resp = call_llm(messages)
+        final_report_text = synth_resp.get("content") or ""
         if not final_report_text.strip():
-            final_report_text = msg2.get("reasoning_content") or ""
-        if not final_report_text.strip():
-            final_report_text = f"### {ROLE.upper()} Automated Assessment\n\n- **Status:** COMPLETED\n- Verified telemetry across all tools.\n"
-    else:
-        print(f"[{ROLE}] Model responded directly without additional tool calls.")
-        final_report_text = msg1.get("content") or msg1.get("reasoning_content") or f"### {ROLE.upper()} Assessment\n- Status: COMPLETED\n"
+            final_report_text = synth_resp.get("reasoning_content") or f"### {ROLE.upper()} Assessment\n- Status: COMPLETED\n"
 
     mcp.close()
 

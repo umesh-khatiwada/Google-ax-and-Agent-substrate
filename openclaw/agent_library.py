@@ -11,9 +11,13 @@ logger = logging.getLogger("openclaw.agent_library")
 KNOWN_ROLES = {
     "security": {
         "title": "Security Auditor Agent",
-        "description": "Audits file permissions, sudoers configurations, and checks known CVE vulnerability database.",
+        "description": "Audits file permissions, scans for malware signatures, checks network sockets, lists processes, and checks CVE vulnerability database.",
         "tools": [
-            {"name": "audit_permissions", "description": "Audits sensitive file permissions across workspace"},
+            {"name": "audit_permissions", "description": "Audits sensitive file permissions and suid flags across workspace"},
+            {"name": "scan_for_malware", "description": "Scans workspace files for known malware signatures and suspicious scripts"},
+            {"name": "check_network", "description": "Inspects sandbox network interfaces, listening sockets, and egress routing"},
+            {"name": "list_processes", "description": "Enumerates all running processes inside the sandbox actor"},
+            {"name": "get_system_info", "description": "Retrieves operating system details, kernel release, and environment"},
             {"name": "scan_cve_database", "description": "Scans package and kernel CVE database for vulnerabilities"}
         ]
     },
