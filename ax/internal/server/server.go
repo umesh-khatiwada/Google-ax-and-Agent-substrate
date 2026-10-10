@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/ax/internal/lock"
 	"github.com/google/ax/internal/store"
@@ -249,7 +250,12 @@ func (s *Server) DeleteTask(ctx context.Context, req *v1alpha1.DeleteTaskRequest
 	}
 
 	if err := s.store.DeleteTask(ctx, atespace, taskName); err != nil {
-		return nil, status.Errorf(codes.Internal, "deleting task record: %v", err)
+		delCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		delErr := s.store.DeleteTask(delCtx, atespace, taskName)
+		cancel()
+		if delErr != nil {
+			return nil, status.Errorf(codes.Internal, "deleting task record: %v", err)
+		}
 	}
 	return &v1alpha1.DeleteTaskResponse{}, nil
 }
@@ -290,7 +296,10 @@ func (s *Server) SuspendTask(ctx context.Context, req *v1alpha1.SuspendTaskReque
 			return nil, status.Errorf(codes.Internal, "suspending task on substrate: %v", err)
 		}
 		task.Status = reconciled.Status
-		if err := s.store.UpdateTaskStatus(ctx, atespace, taskName, task.Status); err != nil {
+		updateCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = s.store.UpdateTaskStatus(updateCtx, atespace, taskName, task.Status)
+		cancel()
+		if err != nil {
 			return nil, status.Errorf(codes.Internal, "updating task status: %v", err)
 		}
 	} else {
@@ -336,11 +345,16 @@ func (s *Server) ResumeTask(ctx context.Context, req *v1alpha1.ResumeTaskRequest
 		reconciled, err := s.reconciler.Reconcile(ctx, task, workspaces...)
 		if err != nil {
 			task.Status.Phase = "Failed"
-			_ = s.store.UpdateTaskStatus(ctx, atespace, taskName, task.Status)
+			updateCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			_ = s.store.UpdateTaskStatus(updateCtx, atespace, taskName, task.Status)
+			cancel()
 			return nil, status.Errorf(codes.Internal, "resuming task on substrate: %v", err)
 		}
 		task.Status = reconciled.Status
-		if err := s.store.UpdateTaskStatus(ctx, atespace, taskName, task.Status); err != nil {
+		updateCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = s.store.UpdateTaskStatus(updateCtx, atespace, taskName, task.Status)
+		cancel()
+		if err != nil {
 			return nil, status.Errorf(codes.Internal, "updating task status: %v", err)
 		}
 	} else {

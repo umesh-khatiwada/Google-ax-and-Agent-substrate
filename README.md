@@ -87,14 +87,24 @@ AX executes directly on top of [**Agent Substrate**](https://github.com/agent-su
 
 ## Quick Start
 
-You can bring up the entire environment and execute an end-to-end example with a single command:
+### Option A: Turnkey Fresh Cluster Setup (Recommended)
+Tear down any old cluster, recreate the cluster and registry with all prerequisites, deploy Agent Substrate and Google AX, and verify the example setup in one command:
 
 ```bash
-# 1. Complete end-to-end setup (cluster, substrate, AX, and demo)
-make all
+# Provision a completely fresh cluster and verify end-to-end
+./scripts/setup-fresh-cluster.sh
+
+# Or via Makefile:
+make fresh
 ```
 
-Or step-by-step:
+Flags supported by `setup-fresh-cluster.sh`:
+- `--skip-example`: Deploy cluster, Substrate, and AX, but skip running the demo task.
+- `--no-clean`: Keep existing cluster if present rather than deleting it first.
+- `--cluster-name <name>`: Custom cluster name (default: `google-ax`).
+- `--registry-port <port>`: Custom registry port (default: `5001`).
+
+### Option B: Step-by-Step Setup
 
 ```bash
 # 1. Create the kind cluster 'google-ax' with required feature gates
@@ -117,10 +127,11 @@ make example
 ```
 .
 ├── Makefile                     # Root automation targets
-├── Readme.md                    # This documentation
+├── README.md                    # This documentation
 ├── ax/                          # Google AX source code & deployment manifests
 ├── substrate/                   # Agent Substrate source code & installation tools
 ├── scripts/
+│   ├── setup-fresh-cluster.sh   # All-in-one fresh cluster teardown & provisioning script
 │   ├── setup-kind-cluster.sh    # Creates the 'google-ax' kind cluster with local registry
 │   ├── deploy-substrate.sh      # Deploys Agent Substrate control plane + WorkerPool
 │   ├── deploy-ax.sh             # Deploys Redis, builds runner image & ax-server, installs CLI
