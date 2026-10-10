@@ -39,7 +39,7 @@ openclaw-status:
 	@kubectl --context kind-google-ax get pods -n openclaw-system -o wide
 	@echo ""
 	@echo "==> Telegram Bot Connectivity:"
-	@curl -s https://api.telegram.org/botYOUR_TELEGRAM_BOT_TOKEN/getMe | python3 -m json.tool
+	@[ -n "$$TELEGRAM_BOT_TOKEN" ] && curl -s "https://api.telegram.org/bot$${TELEGRAM_BOT_TOKEN}/getMe" | python3 -m json.tool || echo "Set TELEGRAM_BOT_TOKEN to verify bot API connectivity."
 
 openclaw-logs:
 	kubectl --context kind-google-ax logs -f -n openclaw-system deployment/openclaw

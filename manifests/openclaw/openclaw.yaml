@@ -46,11 +46,19 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: TELEGRAM_BOT_TOKEN
-              value: "YOUR_TELEGRAM_BOT_TOKEN"
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: TELEGRAM_BOT_TOKEN
+                  optional: true
             - name: OPENAI_BASE_URL
               value: "https://integrate.api.nvidia.com/v1"
             - name: OPENAI_API_KEY
-              value: "YOUR_NVIDIA_API_KEY"
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: OPENAI_API_KEY
+                  optional: true
             - name: MODEL_NAME
               value: "nvidia/nemotron-3-super-120b-a12b"
             - name: AX_SERVER

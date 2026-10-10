@@ -177,17 +177,16 @@ spec:
   - path: agent_runner.py
     content: "#!/usr/bin/env python3\nimport sys, os, json, subprocess, urllib.request,\
       \ socket, time\n\nROLE = os.getenv(\"AGENT_ROLE\", \"security\")\nAPI_KEY =\
-      \ os.getenv(\"OPENAI_API_KEY\", \"YOUR_NVIDIA_API_KEY\"\
-      )\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\", \"https://integrate.api.nvidia.com/v1\"\
-      )\nMODEL = os.getenv(\"MODEL_NAME\", \"nvidia/nemotron-3-super-120b-a12b\")\n\
-      WORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\", \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR,\
-      \ \"mcp_server.py\")\n\nclass MCPClient:\n    def __init__(self, p):\n     \
-      \   self.proc = subprocess.Popen([sys.executable, p], stdin=subprocess.PIPE,\
-      \ stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)\n  \
-      \      self.msg_id = 0\n    def call(self, method, params=None):\n        self.msg_id\
-      \ += 1\n        self.proc.stdin.write(json.dumps({\"jsonrpc\": \"2.0\", \"id\"\
-      : self.msg_id, \"method\": method, \"params\": params or {}}) + \"\\n\")\n \
-      \       self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
+      \ os.getenv(\"OPENAI_API_KEY\", \"\")\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\"\
+      , \"https://integrate.api.nvidia.com/v1\")\nMODEL = os.getenv(\"MODEL_NAME\"\
+      , \"nvidia/nemotron-3-super-120b-a12b\")\nWORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\"\
+      , \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR, \"mcp_server.py\"\
+      )\n\nclass MCPClient:\n    def __init__(self, p):\n        self.proc = subprocess.Popen([sys.executable,\
+      \ p], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+      \ text=True, bufsize=1)\n        self.msg_id = 0\n    def call(self, method,\
+      \ params=None):\n        self.msg_id += 1\n        self.proc.stdin.write(json.dumps({\"\
+      jsonrpc\": \"2.0\", \"id\": self.msg_id, \"method\": method, \"params\": params\
+      \ or {}}) + \"\\n\")\n        self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
       \        if not line: raise RuntimeError(\"MCP server closed unexpectedly\"\
       )\n        return json.loads(line.strip())\n    def close(self):\n        try:\
       \ self.proc.terminate(); self.proc.wait(timeout=2)\n        except Exception:\
@@ -282,7 +281,7 @@ spec:
   - name: OPENAI_BASE_URL
     value: https://integrate.api.nvidia.com/v1
   - name: OPENAI_API_KEY
-    value: YOUR_NVIDIA_API_KEY
+    value: ''
   - name: MODEL_NAME
     value: nvidia/nemotron-3-super-120b-a12b
   - name: AGENT_ROLE
@@ -345,17 +344,16 @@ spec:
   - path: agent_runner.py
     content: "#!/usr/bin/env python3\nimport sys, os, json, subprocess, urllib.request,\
       \ socket, time\n\nROLE = os.getenv(\"AGENT_ROLE\", \"security\")\nAPI_KEY =\
-      \ os.getenv(\"OPENAI_API_KEY\", \"YOUR_NVIDIA_API_KEY\"\
-      )\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\", \"https://integrate.api.nvidia.com/v1\"\
-      )\nMODEL = os.getenv(\"MODEL_NAME\", \"nvidia/nemotron-3-super-120b-a12b\")\n\
-      WORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\", \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR,\
-      \ \"mcp_server.py\")\n\nclass MCPClient:\n    def __init__(self, p):\n     \
-      \   self.proc = subprocess.Popen([sys.executable, p], stdin=subprocess.PIPE,\
-      \ stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)\n  \
-      \      self.msg_id = 0\n    def call(self, method, params=None):\n        self.msg_id\
-      \ += 1\n        self.proc.stdin.write(json.dumps({\"jsonrpc\": \"2.0\", \"id\"\
-      : self.msg_id, \"method\": method, \"params\": params or {}}) + \"\\n\")\n \
-      \       self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
+      \ os.getenv(\"OPENAI_API_KEY\", \"\")\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\"\
+      , \"https://integrate.api.nvidia.com/v1\")\nMODEL = os.getenv(\"MODEL_NAME\"\
+      , \"nvidia/nemotron-3-super-120b-a12b\")\nWORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\"\
+      , \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR, \"mcp_server.py\"\
+      )\n\nclass MCPClient:\n    def __init__(self, p):\n        self.proc = subprocess.Popen([sys.executable,\
+      \ p], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+      \ text=True, bufsize=1)\n        self.msg_id = 0\n    def call(self, method,\
+      \ params=None):\n        self.msg_id += 1\n        self.proc.stdin.write(json.dumps({\"\
+      jsonrpc\": \"2.0\", \"id\": self.msg_id, \"method\": method, \"params\": params\
+      \ or {}}) + \"\\n\")\n        self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
       \        if not line: raise RuntimeError(\"MCP server closed unexpectedly\"\
       )\n        return json.loads(line.strip())\n    def close(self):\n        try:\
       \ self.proc.terminate(); self.proc.wait(timeout=2)\n        except Exception:\
@@ -450,7 +448,7 @@ spec:
   - name: OPENAI_BASE_URL
     value: https://integrate.api.nvidia.com/v1
   - name: OPENAI_API_KEY
-    value: YOUR_NVIDIA_API_KEY
+    value: ''
   - name: MODEL_NAME
     value: nvidia/nemotron-3-super-120b-a12b
   - name: AGENT_ROLE
@@ -513,17 +511,16 @@ spec:
   - path: agent_runner.py
     content: "#!/usr/bin/env python3\nimport sys, os, json, subprocess, urllib.request,\
       \ socket, time\n\nROLE = os.getenv(\"AGENT_ROLE\", \"security\")\nAPI_KEY =\
-      \ os.getenv(\"OPENAI_API_KEY\", \"YOUR_NVIDIA_API_KEY\"\
-      )\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\", \"https://integrate.api.nvidia.com/v1\"\
-      )\nMODEL = os.getenv(\"MODEL_NAME\", \"nvidia/nemotron-3-super-120b-a12b\")\n\
-      WORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\", \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR,\
-      \ \"mcp_server.py\")\n\nclass MCPClient:\n    def __init__(self, p):\n     \
-      \   self.proc = subprocess.Popen([sys.executable, p], stdin=subprocess.PIPE,\
-      \ stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)\n  \
-      \      self.msg_id = 0\n    def call(self, method, params=None):\n        self.msg_id\
-      \ += 1\n        self.proc.stdin.write(json.dumps({\"jsonrpc\": \"2.0\", \"id\"\
-      : self.msg_id, \"method\": method, \"params\": params or {}}) + \"\\n\")\n \
-      \       self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
+      \ os.getenv(\"OPENAI_API_KEY\", \"\")\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\"\
+      , \"https://integrate.api.nvidia.com/v1\")\nMODEL = os.getenv(\"MODEL_NAME\"\
+      , \"nvidia/nemotron-3-super-120b-a12b\")\nWORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\"\
+      , \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR, \"mcp_server.py\"\
+      )\n\nclass MCPClient:\n    def __init__(self, p):\n        self.proc = subprocess.Popen([sys.executable,\
+      \ p], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+      \ text=True, bufsize=1)\n        self.msg_id = 0\n    def call(self, method,\
+      \ params=None):\n        self.msg_id += 1\n        self.proc.stdin.write(json.dumps({\"\
+      jsonrpc\": \"2.0\", \"id\": self.msg_id, \"method\": method, \"params\": params\
+      \ or {}}) + \"\\n\")\n        self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
       \        if not line: raise RuntimeError(\"MCP server closed unexpectedly\"\
       )\n        return json.loads(line.strip())\n    def close(self):\n        try:\
       \ self.proc.terminate(); self.proc.wait(timeout=2)\n        except Exception:\
@@ -618,7 +615,7 @@ spec:
   - name: OPENAI_BASE_URL
     value: https://integrate.api.nvidia.com/v1
   - name: OPENAI_API_KEY
-    value: YOUR_NVIDIA_API_KEY
+    value: ''
   - name: MODEL_NAME
     value: nvidia/nemotron-3-super-120b-a12b
   - name: AGENT_ROLE
@@ -682,17 +679,16 @@ spec:
   - path: agent_runner.py
     content: "#!/usr/bin/env python3\nimport sys, os, json, subprocess, urllib.request,\
       \ socket, time\n\nROLE = os.getenv(\"AGENT_ROLE\", \"security\")\nAPI_KEY =\
-      \ os.getenv(\"OPENAI_API_KEY\", \"YOUR_NVIDIA_API_KEY\"\
-      )\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\", \"https://integrate.api.nvidia.com/v1\"\
-      )\nMODEL = os.getenv(\"MODEL_NAME\", \"nvidia/nemotron-3-super-120b-a12b\")\n\
-      WORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\", \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR,\
-      \ \"mcp_server.py\")\n\nclass MCPClient:\n    def __init__(self, p):\n     \
-      \   self.proc = subprocess.Popen([sys.executable, p], stdin=subprocess.PIPE,\
-      \ stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)\n  \
-      \      self.msg_id = 0\n    def call(self, method, params=None):\n        self.msg_id\
-      \ += 1\n        self.proc.stdin.write(json.dumps({\"jsonrpc\": \"2.0\", \"id\"\
-      : self.msg_id, \"method\": method, \"params\": params or {}}) + \"\\n\")\n \
-      \       self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
+      \ os.getenv(\"OPENAI_API_KEY\", \"\")\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\"\
+      , \"https://integrate.api.nvidia.com/v1\")\nMODEL = os.getenv(\"MODEL_NAME\"\
+      , \"nvidia/nemotron-3-super-120b-a12b\")\nWORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\"\
+      , \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR, \"mcp_server.py\"\
+      )\n\nclass MCPClient:\n    def __init__(self, p):\n        self.proc = subprocess.Popen([sys.executable,\
+      \ p], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+      \ text=True, bufsize=1)\n        self.msg_id = 0\n    def call(self, method,\
+      \ params=None):\n        self.msg_id += 1\n        self.proc.stdin.write(json.dumps({\"\
+      jsonrpc\": \"2.0\", \"id\": self.msg_id, \"method\": method, \"params\": params\
+      \ or {}}) + \"\\n\")\n        self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
       \        if not line: raise RuntimeError(\"MCP server closed unexpectedly\"\
       )\n        return json.loads(line.strip())\n    def close(self):\n        try:\
       \ self.proc.terminate(); self.proc.wait(timeout=2)\n        except Exception:\
@@ -787,7 +783,7 @@ spec:
   - name: OPENAI_BASE_URL
     value: https://integrate.api.nvidia.com/v1
   - name: OPENAI_API_KEY
-    value: YOUR_NVIDIA_API_KEY
+    value: ''
   - name: MODEL_NAME
     value: nvidia/nemotron-3-super-120b-a12b
   - name: AGENT_ROLE
@@ -850,17 +846,16 @@ spec:
   - path: agent_runner.py
     content: "#!/usr/bin/env python3\nimport sys, os, json, subprocess, urllib.request,\
       \ socket, time\n\nROLE = os.getenv(\"AGENT_ROLE\", \"security\")\nAPI_KEY =\
-      \ os.getenv(\"OPENAI_API_KEY\", \"YOUR_NVIDIA_API_KEY\"\
-      )\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\", \"https://integrate.api.nvidia.com/v1\"\
-      )\nMODEL = os.getenv(\"MODEL_NAME\", \"nvidia/nemotron-3-super-120b-a12b\")\n\
-      WORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\", \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR,\
-      \ \"mcp_server.py\")\n\nclass MCPClient:\n    def __init__(self, p):\n     \
-      \   self.proc = subprocess.Popen([sys.executable, p], stdin=subprocess.PIPE,\
-      \ stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)\n  \
-      \      self.msg_id = 0\n    def call(self, method, params=None):\n        self.msg_id\
-      \ += 1\n        self.proc.stdin.write(json.dumps({\"jsonrpc\": \"2.0\", \"id\"\
-      : self.msg_id, \"method\": method, \"params\": params or {}}) + \"\\n\")\n \
-      \       self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
+      \ os.getenv(\"OPENAI_API_KEY\", \"\")\nBASE_URL = os.getenv(\"OPENAI_BASE_URL\"\
+      , \"https://integrate.api.nvidia.com/v1\")\nMODEL = os.getenv(\"MODEL_NAME\"\
+      , \"nvidia/nemotron-3-super-120b-a12b\")\nWORKSPACE_DIR = os.getenv(\"WORKSPACE_DIR\"\
+      , \"/workspace\")\nMCP_SCRIPT = os.path.join(WORKSPACE_DIR, \"mcp_server.py\"\
+      )\n\nclass MCPClient:\n    def __init__(self, p):\n        self.proc = subprocess.Popen([sys.executable,\
+      \ p], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+      \ text=True, bufsize=1)\n        self.msg_id = 0\n    def call(self, method,\
+      \ params=None):\n        self.msg_id += 1\n        self.proc.stdin.write(json.dumps({\"\
+      jsonrpc\": \"2.0\", \"id\": self.msg_id, \"method\": method, \"params\": params\
+      \ or {}}) + \"\\n\")\n        self.proc.stdin.flush()\n        line = self.proc.stdout.readline()\n\
       \        if not line: raise RuntimeError(\"MCP server closed unexpectedly\"\
       )\n        return json.loads(line.strip())\n    def close(self):\n        try:\
       \ self.proc.terminate(); self.proc.wait(timeout=2)\n        except Exception:\
@@ -955,7 +950,7 @@ spec:
   - name: OPENAI_BASE_URL
     value: https://integrate.api.nvidia.com/v1
   - name: OPENAI_API_KEY
-    value: YOUR_NVIDIA_API_KEY
+    value: ''
   - name: MODEL_NAME
     value: nvidia/nemotron-3-super-120b-a12b
   - name: AGENT_ROLE

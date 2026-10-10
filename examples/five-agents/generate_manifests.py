@@ -354,7 +354,7 @@ for task_name, ws_name, role, desc in roles:
             "image": "localhost:5001/ax/ax-task-runner@sha256:e4b09ffdb560190d6001dca2310e9d8cd3aec16a193c90526dd7921361e1a9ba",
             "env": [
                 {"name": "OPENAI_BASE_URL", "value": "https://integrate.api.nvidia.com/v1"},
-                {"name": "OPENAI_API_KEY", "value": "YOUR_NVIDIA_API_KEY"},
+                {"name": "OPENAI_API_KEY", "value": os.getenv("OPENAI_API_KEY", "")},
                 {"name": "MODEL_NAME", "value": "nvidia/nemotron-3-super-120b-a12b"},
                 {"name": "AGENT_ROLE", "value": role}
             ],

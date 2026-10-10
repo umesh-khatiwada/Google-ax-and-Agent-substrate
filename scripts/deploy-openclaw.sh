@@ -32,8 +32,19 @@ echo "==> Pushing to local registry and loading into Kind cluster..."
 docker push "${IMAGE_TAG}"
 kind load docker-image "${IMAGE_TAG}" --name "${CLUSTER_NAME}"
 
-# 4. Apply Kubernetes Manifests
-echo "==> Applying OpenClaw namespace, RBAC, and deployment..."
+# 4. Apply Kubernetes Manifests and Secrets
+echo "==> Ensuring OpenClaw namespace..."
+kubectl create namespace openclaw-system --dry-run=client -o yaml | kubectl apply -f -
+
+if [[ -n "${OPENAI_API_KEY:-}" ]] || [[ -n "${TELEGRAM_BOT_TOKEN:-}" ]]; then
+  echo "==> Syncing secrets from environment..."
+  kubectl create secret generic openclaw-secrets -n openclaw-system \
+    ${OPENAI_API_KEY:+--from-literal=OPENAI_API_KEY="${OPENAI_API_KEY}"} \
+    ${TELEGRAM_BOT_TOKEN:+--from-literal=TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}"} \
+    --dry-run=client -o yaml | kubectl apply -f -
+fi
+
+echo "==> Applying OpenClaw RBAC and deployment..."
 kubectl apply -f "${ROOT_DIR}/manifests/openclaw/openclaw.yaml"
 
 # 5. Wait for Deployment Rollout

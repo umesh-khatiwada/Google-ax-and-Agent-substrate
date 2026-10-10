@@ -2,7 +2,7 @@
 import sys, os, json, subprocess, urllib.request, socket, time
 
 ROLE = os.getenv("AGENT_ROLE", "security")
-API_KEY = os.getenv("OPENAI_API_KEY", "YOUR_NVIDIA_API_KEY")
+API_KEY = os.getenv("OPENAI_API_KEY", "")
 BASE_URL = os.getenv("OPENAI_BASE_URL", "https://integrate.api.nvidia.com/v1")
 MODEL = os.getenv("MODEL_NAME", "nvidia/nemotron-3-super-120b-a12b")
 WORKSPACE_DIR = os.getenv("WORKSPACE_DIR", "/workspace")
