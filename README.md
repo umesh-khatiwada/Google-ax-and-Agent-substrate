@@ -118,6 +118,9 @@ make ax
 
 # 4. Run the example agent task lifecycle
 make example
+
+# 5. Run the 5 autonomous agents with connected MCP servers & NVIDIA Nemotron
+make five-agents
 ```
 
 ---
@@ -128,21 +131,28 @@ make example
 .
 ├── Makefile                     # Root automation targets
 ├── README.md                    # This documentation
-├── ax/                          # Google AX source code & deployment manifests
-├── substrate/                   # Agent Substrate source code & installation tools
+├── ax/                          # Google AX upstream source code (untouched)
+├── substrate/                   # Agent Substrate upstream source code (untouched)
 ├── scripts/
+│   ├── run-5-agents.sh          # Orchestrates 5 agents with MCP & NVIDIA Nemotron
 │   ├── setup-fresh-cluster.sh   # All-in-one fresh cluster teardown & provisioning script
 │   ├── setup-kind-cluster.sh    # Creates the 'google-ax' kind cluster with local registry
 │   ├── deploy-substrate.sh      # Deploys Agent Substrate control plane + WorkerPool
 │   ├── deploy-ax.sh             # Deploys Redis, builds runner image & ax-server, installs CLI
 │   └── run-example.sh           # Runs an end-to-end Task & Workspace lifecycle demo
 ├── manifests/
+│   ├── egress/
+│   │   └── allow-all.yaml       # Substrate EgressPolicy for outbound API egress
 │   ├── ax/
 │   │   ├── redis.yaml           # AX Redis state store manifest
 │   │   └── ax-server.yaml       # AX API and reconciler deployment
 │   └── substrate/
 │       └── workerpool.yaml      # Substrate WorkerPool specification
 └── examples/
+    ├── five-agents/             # 5 Agents + Workspaces + connected MCP tools + runner
+    │   ├── manifests.yaml       # Declarative Task & Workspace manifests for all 5 agents
+    │   ├── mcp_server.py        # Model Context Protocol (MCP) JSON-RPC stdio tool server
+    │   └── agent_runner.py      # Agent driver integrating MCP tools with NVIDIA Nemotron
     ├── example-task.yaml        # Example Task + Workspace declaring git repo
     └── simple-task.yaml         # Minimal Task without external workspace
 ```
@@ -303,6 +313,50 @@ ax get tasks
 # NAME        ATESPACE   PHASE     ACTOR       WORKER-IP     AGE
 # demo-task   default    Running   demo-task   10.244.0.25   2m
 ```
+
+---
+
+## Running 5 Autonomous Agents with MCP & NVIDIA Nemotron
+
+We provide a complete multi-agent production pattern in [`examples/five-agents/`](examples/five-agents/) running 5 autonomous agents. Each agent:
+1. Has its own dedicated `Workspace` and `Task` in AX.
+2. Connects to its own dedicated Model Context Protocol (**MCP**) tool server running via stdio JSON-RPC 2.0.
+3. Uses the **NVIDIA Nemotron 120B** LLM (`nvidia/nemotron-3-super-120b-a12b`) through OpenAI-compatible chat completions with function calling.
+4. Executes real diagnostic tools, synthesizes a detailed markdown report into `/workspace/<role>-report.md`, and creates `/workspace/COMPLETED`.
+5. Is automatically **Suspended** (`ax suspend task <name>`) once work is finished, safely preserving workspace state while releasing compute resources.
+6. **Zero upstream modifications**: Operates with 100% untouched `ax` and `substrate` codebases by leveraging Substrate's native `EgressPolicy`.
+
+### The 5 Agents & Their MCP Tools
+
+| Agent Name | Workspace | Role Description | MCP Tools Provided |
+|---|---|---|---|
+| `security-agent` | `security-workspace` | Security Auditor | `audit_permissions`, `scan_cve_database` |
+| `linter-agent` | `linter-workspace` | Code Quality & Linter | `check_python_syntax`, `analyze_complexity` |
+| `perf-agent` | `perf-workspace` | Performance & Profiling | `sample_memory_profile`, `benchmark_cpu` |
+| `docs-agent` | `docs-workspace` | Documentation & Spec Validator | `generate_openapi_spec`, `validate_markdown_links` |
+| `sre-agent` | `sre-workspace` | Site Reliability & Health | `probe_readiness`, `evaluate_resilience` |
+
+### Running the Multi-Agent Suite
+
+Run the automated orchestrator:
+```bash
+make five-agents
+# or directly:
+./scripts/run-5-agents.sh
+```
+
+### How It Works Under the Hood
+
+1. **Declarative Provisioning**:
+   Applies [`examples/five-agents/manifests.yaml`](examples/five-agents/manifests.yaml) via `ax apply -f`, creating 5 workspaces (with embedded MCP server and agent runner) and 5 tasks.
+2. **Substrate Egress Authorization**:
+   Applies [`manifests/egress/allow-all.yaml`](manifests/egress/allow-all.yaml) using the official `bin/kubectl-ate` CLI to enable outbound HTTPS (port 443 TLS passthrough) to NVIDIA's API endpoint (`integrate.api.nvidia.com`).
+3. **Parallel Task Resumption**:
+   Resumes each task via `ax resume task <name>`. Substrate schedules gVisor sandboxes and mounts the respective workspaces.
+4. **Autonomous Execution**:
+   Each agent boots `agent_runner.py`, connects to `mcp_server.py`, queries NVIDIA Nemotron, receives tool calls, runs the tools, submits results back to the model, and saves the final audit report.
+5. **State Preservation & Suspension**:
+   The orchestrator waits for the completion markers, logs the reports, and executes `ax suspend task <name>`. Tasks transition to `Suspended` phase and snapshot state into storage.
 
 ---
 

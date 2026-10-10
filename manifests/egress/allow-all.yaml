@@ -1,0 +1,13 @@
+rules:
+- http:
+    hostnames:
+    - '*'
+    ports:
+      numbers:
+      - 80
+- tlsPassthrough:
+    hostnames:
+    - '*'
+    ports:
+      numbers:
+      - 443

@@ -3,7 +3,7 @@
 
 SHELL := /bin/bash
 
-.PHONY: help all fresh setup-fresh cluster substrate ax example clean status test
+.PHONY: help all fresh setup-fresh cluster substrate ax example five-agents clean status test
 
 help:
 	@echo "Google AX & Agent Substrate on Kind Cluster 'google-ax'"
@@ -15,6 +15,7 @@ help:
 	@echo "  make substrate   - Deploy Agent Substrate control plane and workerpool"
 	@echo "  make ax          - Build and deploy Google AX control plane, runner, and CLI"
 	@echo "  make example     - Run the end-to-end demo agent task lifecycle"
+	@echo "  make five-agents - Run 5 agents with MCP & NVIDIA Nemotron, then suspend"
 	@echo "  make status      - Check cluster, substrate, and AX status"
 	@echo "  make clean       - Tear down the kind cluster and local registry"
 	@echo ""
@@ -22,6 +23,9 @@ help:
 fresh: setup-fresh
 setup-fresh:
 	./scripts/setup-fresh-cluster.sh
+
+five-agents:
+	./scripts/run-5-agents.sh
 
 all: cluster substrate ax example
 
