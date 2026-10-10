@@ -1,0 +1,20 @@
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata:
+  name: ax-workerpool
+  namespace: ate-system
+  labels:
+    workload: ax
+spec:
+  replicas: 1
+  workerImage: localhost:5001/ateom-gvisor-715889664656de67e44382a8d6ab981d@sha256:878798fef33aecc9a12ebc48e0bf1a890e801995c1df3d5e85269b9b280fa87e
+  sandboxClasses:
+  - name: gvisor
+  template:
+    resources:
+      limits:
+        cpu: "4"
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi

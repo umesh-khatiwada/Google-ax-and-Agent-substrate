@@ -1,0 +1,15 @@
+# Copyright 2026 Google LLC
+#
+# Minimal AX Task running on the local task-runner image.
+
+apiVersion: ax.io/v1alpha1
+kind: Task
+metadata:
+  name: simple-task
+  atespace: default
+spec:
+  debug: true
+  image: "localhost:5001/ax/ax-task-runner@sha256:9928e9d1f82f8c0a47d2c0705a8fe3f05858cf7fd09bd461ff128a5e358c1ef0"
+  env:
+    - name: ENVIRONMENT
+      value: "test"

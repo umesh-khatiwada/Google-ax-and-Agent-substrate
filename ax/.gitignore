@@ -1,0 +1,10 @@
+# Binaries
+bin/
+/tmp/
+*.exe
+*.test
+/ax
+/ax-server
+/ax-task-runner
+
+cmd/ax-task-runner/__pycache__/antigravity_bootstrap.cpython-313.pyc

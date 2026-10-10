@@ -1,0 +1,39 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: ax.io/v1alpha1
+kind: Workspace
+metadata:
+  name: demo-workspace
+  atespace: default
+spec:
+  git:
+    - name: origin
+      repo: "https://github.com/google/ax.git"
+      branch: "main"
+---
+apiVersion: ax.io/v1alpha1
+kind: Task
+metadata:
+  name: demo-task
+  atespace: default
+spec:
+  debug: true
+  image: "localhost:5001/ax/ax-task-runner@sha256:9928e9d1f82f8c0a47d2c0705a8fe3f05858cf7fd09bd461ff128a5e358c1ef0"
+  workspaces:
+    - name: demo-workspace
+      path: "/workspace"
+  env:
+    - name: DEMO_ENV
+      value: "active"
