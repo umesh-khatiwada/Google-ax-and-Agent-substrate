@@ -71,15 +71,20 @@ class AgentSpawner:
                 "duration": time.time() - start_time
             }
 
-        # 4. Clean previous completion marker
+        # 4. Clean previous completion marker and inject prompt
         self.ax_client.ssh_exec(agent_name, "rm -f /workspace/COMPLETED", timeout=10)
+        if custom_prompt:
+            escaped_prompt = custom_prompt.replace("'", "'\\''")
+            self.ax_client.ssh_exec(agent_name, f"printf '%s' '{escaped_prompt}' > /workspace/PROMPT.txt", timeout=10)
+        else:
+            self.ax_client.ssh_exec(agent_name, "rm -f /workspace/PROMPT.txt", timeout=10)
 
         # 5. Run Agent inside sandbox
         update(f"🧠 Executing agent runner with MCP tools and NVIDIA Nemotron 120B...")
         run_res = self.ax_client.ssh_exec(
             agent_name,
             "python3 /workspace/agent_runner.py",
-            timeout=120
+            timeout=180
         )
 
         if run_res.returncode != 0:

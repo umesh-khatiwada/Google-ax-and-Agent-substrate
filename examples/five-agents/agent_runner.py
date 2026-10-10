@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-# Agent Execution Engine:
-# 1. Spawns connected MCP tool server via JSON-RPC 2.0 stdio
-# 2. Queries NVIDIA Nemotron LLM (nvidia/nemotron-3-super-120b-a12b)
-# 3. Executes tool calls against the connected MCP server
-# 4. Synthesizes executive report and writes to /workspace/<role>-report.md
-# 5. Signals completion
-import sys
-import os
-import json
-import subprocess
-import urllib.request
+import sys, os, json, subprocess, urllib.request, socket, time
 
 ROLE = os.getenv("AGENT_ROLE", "security")
 API_KEY = os.getenv("OPENAI_API_KEY", "YOUR_NVIDIA_API_KEY")
@@ -19,209 +9,117 @@ WORKSPACE_DIR = os.getenv("WORKSPACE_DIR", "/workspace")
 MCP_SCRIPT = os.path.join(WORKSPACE_DIR, "mcp_server.py")
 
 class MCPClient:
-    def __init__(self, script_path):
-        self.proc = subprocess.Popen(
-            [sys.executable, script_path],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
-        )
+    def __init__(self, p):
+        self.proc = subprocess.Popen([sys.executable, p], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         self.msg_id = 0
-
     def call(self, method, params=None):
         self.msg_id += 1
-        req = {
-            "jsonrpc": "2.0",
-            "id": self.msg_id,
-            "method": method,
-            "params": params or {}
-        }
-        self.proc.stdin.write(json.dumps(req) + "\n")
+        self.proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": self.msg_id, "method": method, "params": params or {}}) + "\n")
         self.proc.stdin.flush()
         line = self.proc.stdout.readline()
-        if not line:
-            raise RuntimeError("MCP server closed stdout unexpectedly")
+        if not line: raise RuntimeError("MCP server closed unexpectedly")
         return json.loads(line.strip())
-
     def close(self):
-        try:
-            self.proc.terminate()
-            self.proc.wait(timeout=2)
-        except Exception:
-            self.proc.kill()
+        try: self.proc.terminate(); self.proc.wait(timeout=2)
+        except Exception: self.proc.kill()
 
 def main():
-    print(f"================================================================")
-    print(f" Starting Agent [{ROLE}] with Model [{MODEL}]")
-    print(f"================================================================")
-
-    # 1. Connect to local MCP Server
-    print(f"[{ROLE}] Initializing MCP server at {MCP_SCRIPT}...")
+    print(f"Starting Agent [{ROLE}] with Model [{MODEL}]")
     mcp = MCPClient(MCP_SCRIPT)
-    init_res = mcp.call("initialize", {"protocolVersion": "2024-11-05"})
-    print(f"[{ROLE}] Connected to MCP Server: {init_res.get('result', {}).get('serverInfo', {})}")
+    mcp.call("initialize", {"protocolVersion": "2024-11-05"})
+    mcp_tools = mcp.call("tools/list").get("result", {}).get("tools", [])
+    openai_tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["inputSchema"]}} for t in mcp_tools]
 
-    # 2. Discover available tools from MCP
-    tools_res = mcp.call("tools/list")
-    mcp_tools = tools_res.get("result", {}).get("tools", [])
-    print(f"[{ROLE}] Discovered {len(mcp_tools)} tools from MCP server:")
-    for t in mcp_tools:
-        print(f"  - {t['name']}: {t['description']}")
+    prompt_file = os.path.join(WORKSPACE_DIR, "PROMPT.txt")
+    custom_query = None
+    if os.path.exists(prompt_file):
+        try:
+            with open(prompt_file, "r") as fp:
+                custom_query = fp.read().strip()
+        except Exception:
+            pass
 
-    # 3. Format tools into OpenAI Function Calling specification
-    openai_tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": t["name"],
-                "description": t["description"],
-                "parameters": t["inputSchema"]
-            }
-        }
-        for t in mcp_tools
-    ]
+    sys_prompt = f"You are the specialized {ROLE.upper()} Agent in Google AX sandbox. Use MCP tools to audit, then synthesize a complete Markdown report."
+    if custom_query:
+        print(f"[{ROLE}] Custom query: {custom_query}")
+        user_prompt = f"Request: '{custom_query}'. If an external URL is specified, prioritize calling audit_web_target and verify_gvisor_isolation, then synthesize analysis."
+    else:
+        user_prompt = f"Perform complete {ROLE} audit on {WORKSPACE_DIR}. Invoke MCP tools, then synthesize analysis."
 
-    # 4. Prepare system prompt and user query
-    tool_names = [t["name"] for t in mcp_tools]
-    tool_descriptions = "\n".join([f"- {t['name']}: {t['description']}" for t in mcp_tools])
+    messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_prompt}]
 
-    system_prompt = (
-        f"You are the specialized {ROLE.upper()} Agent running inside Google AX sandbox at {WORKSPACE_DIR}.\n"
-        f"Your mission is to perform a thorough {ROLE} evaluation by calling the available tools from your "
-        f"connected MCP tool server, and then write a comprehensive, executive Markdown report.\n\n"
-        f"Connected MCP Tools available for invocation:\n{tool_descriptions}\n\n"
-        f"Always invoke the relevant MCP tools to gather telemetry before writing your final executive report."
-    )
-    user_prompt = (
-        f"Please execute the complete {ROLE} audit and evaluation on {WORKSPACE_DIR}. "
-        f"Invoke the relevant MCP tools ({', '.join(tool_names)}) to gather telemetry, then synthesize your analysis."
-    )
+    for _w in range(10):
+        try:
+            with socket.create_connection(("integrate.api.nvidia.com", 443), timeout=3): break
+        except Exception: time.sleep(1)
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
-
-    def call_llm(msgs, tools_list=None):
-        import time
-        for attempt in range(3):
+    def call_llm(msgs, tools=None, max_tokens=4096):
+        max_attempts = 5
+        for att in range(max_attempts):
             try:
-                payload = {
-                    "model": MODEL,
-                    "messages": msgs,
-                    "max_tokens": 1500,
-                    "temperature": 0.2
-                }
-                if tools_list:
-                    payload["tools"] = tools_list
+                payload = {"model": MODEL, "messages": msgs, "max_tokens": max_tokens, "temperature": 0.2}
+                if tools: payload["tools"] = tools
                 req = urllib.request.Request(
                     f"{BASE_URL}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {API_KEY}",
-                        "Content-Type": "application/json",
-                        "Connection": "close"
-                    },
+                    headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json", "Connection": "close"},
                     data=json.dumps(payload).encode("utf-8")
                 )
-                with urllib.request.urlopen(req, timeout=45) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    return data["choices"][0]["message"]
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    return json.loads(r.read().decode("utf-8"))["choices"][0]["message"]
             except Exception as e:
-                if attempt == 2:
-                    raise
-                print(f"[{ROLE}] LLM call attempt {attempt+1} encountered {e}; retrying in 2s...")
-                time.sleep(2)
+                if att == max_attempts - 1: raise
+                backoff = 2 * (att + 1)
+                print(f"[{ROLE}] LLM call attempt {att+1} error: {e}; retrying in {backoff}s...")
+                time.sleep(backoff)
 
-    # 5. Multi-turn ReAct tool execution loop
-    max_turns = 6
-    turn = 0
-    final_report_text = ""
-
-    while turn < max_turns:
-        turn += 1
-        print(f"[{ROLE}] Turn {turn}/{max_turns}: Querying NVIDIA Nemotron...")
+    max_turns = 4
+    final_report = ""
+    for turn in range(1, max_turns + 1):
+        print(f"[{ROLE}] Turn {turn}/{max_turns}: Querying Nemotron...")
         resp = call_llm(messages, openai_tools)
-        tool_calls = resp.get("tool_calls")
-
-        if tool_calls:
-            print(f"[{ROLE}] Nemotron requested {len(tool_calls)} tool call(s):")
-            messages.append({
-                "role": "assistant",
-                "content": resp.get("content") or "",
-                "tool_calls": tool_calls
-            })
-
-            for tc in tool_calls:
-                fn_name = tc["function"]["name"]
-                fn_args = json.loads(tc["function"]["arguments"] or "{}")
-                print(f"  -> Calling MCP Tool [{fn_name}] with args: {fn_args}")
-
-                mcp_output = mcp.call("tools/call", {"name": fn_name, "arguments": fn_args})
-                tool_content = mcp_output.get("result", {}).get("content", [{}])[0].get("text", "{}")
-                print(f"  <- Tool Output: {tool_content[:100]}...")
-
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc["id"],
-                    "content": tool_content
-                })
+        tcs = resp.get("tool_calls")
+        if tcs:
+            messages.append({"role": "assistant", "content": resp.get("content") or "", "tool_calls": tcs})
+            for tc in tcs:
+                name = tc["function"]["name"]
+                args = json.loads(tc["function"]["arguments"] or "{}")
+                print(f"  -> Tool Call: {name}({args})")
+                out = mcp.call("tools/call", {"name": name, "arguments": args})
+                content = out.get("result", {}).get("content", [{}])[0].get("text", "{}")
+                print(f"  <- Tool Output: {content[:100]}...")
+                messages.append({"role": "tool", "tool_call_id": tc["id"], "content": content})
         else:
-            final_report_text = resp.get("content") or ""
-            if not final_report_text.strip():
-                final_report_text = resp.get("reasoning_content") or ""
-            print(f"[{ROLE}] Nemotron finished tool execution and generated response.")
+            final_report = resp.get("content") or resp.get("reasoning_content") or ""
             break
 
-    # If still empty after tool iterations, prompt for report synthesis
-    if not final_report_text.strip() or ("We need to invoke" in final_report_text and "tools" in final_report_text):
-        print(f"[{ROLE}] Prompting final report synthesis...")
+    is_full = ("###" in final_report or "##" in final_report) and len(final_report.strip()) > 500 and not final_report.strip().startswith("We need to")
+    if not is_full:
+        print(f"[{ROLE}] Synthesizing complete formal executive report...")
         messages.append({
             "role": "user",
-            "content": (
-                f"All diagnostic MCP tools have now completed execution and their telemetry is provided above. "
-                f"Synthesize the complete, formal Executive {ROLE.capitalize()} Report in Markdown detailing:\n"
-                f"1. Executive Summary & Audit Scope\n"
-                f"2. Verified Telemetry Findings for each executed tool\n"
-                f"3. Risk Rating & Compliance Status\n"
-                f"4. Actionable Security Hardening Recommendations\n\n"
-                f"Output the complete executive report directly in Markdown starting with '# Executive {ROLE.capitalize()} Report'."
-            )
+            "content": f"All diagnostic MCP tools have finished running. Synthesize the complete formal Executive {ROLE.capitalize()} Report in Markdown detailing:\n1. Executive Summary & Audit Scope\n2. Verified Technical Findings (detail tool outputs, certificates, headers)\n3. Risk Rating & Compliance Status\n4. Actionable Security Hardening Recommendations\nDo not include meta-commentary. Output the full markdown report."
         })
-        synth_resp = call_llm(messages)
-        final_report_text = synth_resp.get("content") or ""
-        if not final_report_text.strip():
-            final_report_text = synth_resp.get("reasoning_content") or f"### {ROLE.upper()} Assessment\n- Status: COMPLETED\n"
+        s = call_llm(messages, max_tokens=4096)
+        if s:
+            c = s.get("content") or s.get("reasoning_content") or ""
+            if c.strip(): final_report = c
+
+    if not final_report.strip():
+        findings = [m["content"] for m in messages if m.get("role") == "tool"]
+        final_report = f"## Executive Summary\nCompleted {ROLE} evaluation on {custom_query or WORKSPACE_DIR}.\n\n## Findings\n" + "\n".join(f"- {f}" for f in findings)
 
     mcp.close()
 
-    # 7. Write report to /workspace/<role>-report.md
-    report_filename = f"{ROLE}-report.md"
-    report_path = os.path.join(WORKSPACE_DIR, report_filename)
-    with open(report_path, "w") as f:
-        f.write(f"# Executive {ROLE.capitalize()} Report\n\n")
-        f.write(f"- **Agent Role:** `{ROLE}`\n")
-        f.write(f"- **LLM Engine:** `{MODEL}`\n")
-        f.write(f"- **Target Workspace:** `{WORKSPACE_DIR}`\n\n")
-        f.write(f"---\n\n")
-        f.write(final_report_text)
-        f.write("\n")
+    rpath = os.path.join(WORKSPACE_DIR, f"{ROLE}-report.md")
+    with open(rpath, "w") as f:
+        if not final_report.strip().startswith("#"):
+            f.write(f"# Executive {ROLE.capitalize()} Report\n\n- **Agent Role:** `{ROLE}`\n- **LLM Engine:** `{MODEL}`\n- **Target:** `{WORKSPACE_DIR}`\n\n---\n\n")
+        f.write(final_report.strip() + "\n")
 
-    # 8. Write completion status marker
-    completion_marker = os.path.join(WORKSPACE_DIR, "COMPLETED")
-    with open(completion_marker, "w") as f:
-        f.write(json.dumps({
-            "agent": ROLE,
-            "status": "COMPLETED",
-            "report_path": report_path
-        }) + "\n")
+    with open(os.path.join(WORKSPACE_DIR, "COMPLETED"), "w") as f:
+        f.write(json.dumps({"agent": ROLE, "status": "COMPLETED", "report_path": rpath}) + "\n")
 
-    print(f"[{ROLE}] Successfully generated: {report_path}")
-    print(f"[{ROLE}] Written completion marker: {completion_marker}")
-    print(f"================================================================")
-    print(f" Agent [{ROLE}] Task Completed Successfully!")
-    print(f"================================================================")
+    print(f"[{ROLE}] Report written successfully: {rpath}")
 
 if __name__ == "__main__":
     main()

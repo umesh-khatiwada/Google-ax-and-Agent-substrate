@@ -19,7 +19,8 @@ KNOWN_ROLES = {
             {"name": "list_processes", "description": "Enumerates all running processes inside the sandbox actor"},
             {"name": "get_system_info", "description": "Retrieves operating system details, kernel release, and environment"},
             {"name": "verify_gvisor_isolation", "description": "Verifies Google gVisor kernel sandboxing and Substrate isolation boundaries"},
-            {"name": "scan_cve_database", "description": "Scans package and kernel CVE database for vulnerabilities"}
+            {"name": "scan_cve_database", "description": "Scans package and kernel CVE database for vulnerabilities"},
+            {"name": "audit_web_target", "description": "Performs external defensive security posture audit on web targets and URLs"}
         ]
     },
     "linter": {

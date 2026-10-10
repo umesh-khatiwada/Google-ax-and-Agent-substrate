@@ -72,6 +72,17 @@ TOOLS = {
                 },
                 "required": ["ecosystem", "component"]
             }
+        },
+        {
+            "name": "audit_web_target",
+            "description": "Performs an external defensive security posture check on a web target URL (HTTP headers, SSL/TLS certificate, HSTS, CSP, X-Frame-Options, DNS).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "target_url": {"type": "string", "description": "Web URL or hostname to audit (e.g. https://example.com)"}
+                },
+                "required": ["target_url"]
+            }
         }
     ],
     "linter": [
@@ -271,6 +282,78 @@ def execute_tool(name, args):
                 "component": args.get("component", "python3.12"),
                 "cve_count": 0,
                 "known_vulnerabilities": []
+            }
+        elif name == "audit_web_target":
+            raw_url = args.get("target_url", "").strip()
+            if not raw_url:
+                return {"status": "ERROR", "message": "No target_url specified"}
+            target_url = raw_url if raw_url.startswith("http") else "https://" + raw_url
+            import urllib.request, urllib.error, ssl, socket
+            from urllib.parse import urlparse
+            parsed = urlparse(target_url)
+            host = parsed.hostname or raw_url
+            port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+            headers_found = {}
+            status_code = None
+            try:
+                ctx = ssl.create_default_context()
+                req = urllib.request.Request(
+                    target_url,
+                    headers={"User-Agent": "Mozilla/5.0 (compatible; SecurityAuditor/1.0; OpenClaw)"}
+                )
+                with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
+                    status_code = resp.status
+                    headers_found = {k.lower(): v for k, v in dict(resp.headers).items()}
+            except urllib.error.HTTPError as e:
+                status_code = e.code
+                headers_found = {k.lower(): v for k, v in dict(e.headers).items()}
+            except Exception as e:
+                status_code = f"Error: {e}"
+
+            sec_headers = [
+                ("strict-transport-security", "HSTS (Strict-Transport-Security)"),
+                ("content-security-policy", "CSP (Content-Security-Policy)"),
+                ("x-frame-options", "Clickjacking Protection (X-Frame-Options)"),
+                ("x-content-type-options", "MIME-Sniffing (X-Content-Type-Options)"),
+                ("referrer-policy", "Referrer-Policy"),
+                ("permissions-policy", "Permissions-Policy")
+            ]
+            sec_assessment = {}
+            missing_count = 0
+            for h_key, h_desc in sec_headers:
+                if h_key in headers_found:
+                    sec_assessment[h_desc] = {"present": True, "value": headers_found[h_key][:60]}
+                else:
+                    sec_assessment[h_desc] = {"present": False, "recommendation": f"Configure {h_key} header"}
+                    missing_count += 1
+
+            ssl_info = {}
+            try:
+                sock = socket.create_connection((host, port), timeout=5)
+                ssock = ctx.wrap_socket(sock, server_hostname=host)
+                cert = ssock.getpeercert()
+                ssl_info = {
+                    "tls_version": ssock.version(),
+                    "cipher": ssock.cipher()[0],
+                    "issuer": dict(x[0] for x in cert.get("issuer", [])).get("commonName", "CA"),
+                    "valid_until": cert.get("notAfter", "")
+                }
+                ssock.close()
+            except Exception as e:
+                ssl_info = {"tls_status": f"Handshake info: {e}"}
+
+            return {
+                "status": "COMPLETED",
+                "target_url": target_url,
+                "host": host,
+                "http_status": status_code,
+                "ssl_tls": ssl_info,
+                "security_headers": sec_assessment,
+                "missing_security_headers_count": missing_count,
+                "server_banner": headers_found.get("server", "Hidden/Proxied"),
+                "overall_risk": "Low" if missing_count <= 2 else "Medium",
+                "finding": f"Audited {host}: TLS active. {6 - missing_count}/6 recommended OWASP headers present."
             }
     elif ROLE == "linter":
         if name == "check_python_syntax":

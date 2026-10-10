@@ -17,9 +17,10 @@ class AXClient:
         egress_policy_path: Optional[str] = None,
         ax_server_url: Optional[str] = None
     ):
+        from openclaw import config
         self.ax_bin = ax_bin
         self.kubectl_ate_bin = kubectl_ate_bin
-        self.egress_policy_path = egress_policy_path
+        self.egress_policy_path = egress_policy_path or config.EGRESS_POLICY_PATH
         self.ax_server_url = ax_server_url
 
     def _get_env(self) -> Dict[str, str]:

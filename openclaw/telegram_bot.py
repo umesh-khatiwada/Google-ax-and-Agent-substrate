@@ -101,8 +101,14 @@ class TelegramBot:
             res = self._api_call("editMessageText", payload)
             return bool(res.get("ok"))
         except Exception as e:
-            logger.debug("Could not edit message %s: %s", message_id, e)
-            return False
+            logger.debug("Could not edit message with %s (%s), retrying plain text: %s", parse_mode, message_id, e)
+            try:
+                payload.pop("parse_mode", None)
+                res = self._api_call("editMessageText", payload)
+                return bool(res.get("ok"))
+            except Exception as e2:
+                logger.debug("Failed plain text edit: %s", e2)
+                return False
 
     def send_action(self, chat_id: int, action: str = "typing"):
         try:
@@ -446,14 +452,15 @@ class TelegramBot:
             report = result.get("report", "")
             duration = result.get("duration", 0)
 
-            final_text = (
+            status_text = (
                 f"✅ <b>Agent Execution Completed!</b>\n\n"
                 f"• <b>Agent:</b> <code>{agent_name}</code>\n"
                 f"• <b>Execution Time:</b> <code>{duration}s</code>\n"
-                f"• <b>Cluster Phase:</b> 💤 <code>Suspended</code> (state preserved)\n\n"
-                f"📊 <b>Executive Report:</b>\n"
-                f"<pre>{report}</pre>"
+                f"• <b>Cluster Phase:</b> 💤 <code>Suspended</code> (resources preserved)\n\n"
+                f"📊 <b>Detailed report below:</b> 👇"
             )
+            if msg_id:
+                self.edit_message(chat_id, msg_id, status_text)
 
             keyboard = {
                 "inline_keyboard": [
@@ -462,10 +469,26 @@ class TelegramBot:
                 ]
             }
 
-            if msg_id:
-                self.edit_message(chat_id, msg_id, final_text, reply_markup=keyboard)
-            else:
-                self.send_message(chat_id, final_text, reply_markup=keyboard)
+            # Split report into chunks of at most 3800 chars
+            chunks = []
+            cur_chunk = ""
+            for line in report.split("\n"):
+                if len(cur_chunk) + len(line) + 1 > 3800:
+                    chunks.append(cur_chunk)
+                    cur_chunk = line + "\n"
+                else:
+                    cur_chunk += line + "\n"
+            if cur_chunk.strip():
+                chunks.append(cur_chunk)
+
+            if not chunks:
+                chunks = [report or "Execution completed with empty report."]
+
+            for i, chunk in enumerate(chunks):
+                is_last = (i == len(chunks) - 1)
+                sent = self.send_message(chat_id, chunk, parse_mode="Markdown", reply_markup=keyboard if is_last else None)
+                if not sent:
+                    self.send_message(chat_id, chunk, parse_mode=None, reply_markup=keyboard if is_last else None)
         else:
             err = result.get("error", "Unknown error")
             err_text = f"❌ <b>Execution Failed for {agent_name}</b>\n\nError: <code>{err}</code>"

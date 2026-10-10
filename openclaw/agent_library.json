@@ -27,7 +27,7 @@
       "sre-workspace"
     ],
     "registered_at": 1791623650.8263783,
-    "last_synced": 1791623650.8263786,
+    "last_synced": 1791628630.6793263,
     "last_report": null
   },
   "docs-agent": {
@@ -58,7 +58,7 @@
       "docs-workspace"
     ],
     "registered_at": 1791623650.8336494,
-    "last_synced": 1791623650.8336494,
+    "last_synced": 1791628630.679327,
     "last_report": null
   },
   "perf-agent": {
@@ -89,7 +89,7 @@
       "perf-workspace"
     ],
     "registered_at": 1791623650.8409843,
-    "last_synced": 1791623650.8409846,
+    "last_synced": 1791628630.6793277,
     "last_report": null
   },
   "linter-agent": {
@@ -120,7 +120,7 @@
       "linter-workspace"
     ],
     "registered_at": 1791623650.8483684,
-    "last_synced": 1791623650.8483686,
+    "last_synced": 1791628630.6793282,
     "last_report": null
   },
   "security-agent": {
@@ -151,8 +151,8 @@
       "security-workspace"
     ],
     "registered_at": 1791623650.8561056,
-    "last_synced": 1791623650.8561058,
-    "last_report": null
+    "last_synced": 1791628630.679324,
+    "last_report": "# Security Audit Report: umeshkhatiwada.com.np\n\n## Executive Summary\nA security assessment was conducted on `https://umeshkhatiwada.com.np` to identify potential vulnerabilities. The website is served via Amazon S3 with TLS 1.3 encryption but lacks critical security headers, resulting in a **Medium** overall risk rating. The analysis was performed within a Google gVisor sandbox, which provides strong application kernel isolation.\n\n---\n\n## 1. Web Target Security Audit\n\n### Target Information\n- **URL:** https://umeshkhatiwada.com.np\n- **Host:** umeshkhatiwada.com.np\n- **HTTP Status:** 200 (OK)\n- **Server Banner:** AmazonS3\n\n### TLS/SSL Configuration\n- **TLS Version:** TLSv1.3\n- **Cipher Suite:** TLS_AES_128_GCM_SHA256\n- **Issuer:** Amazon RSA 2048 M01\n- **Valid Until:** Jan 22 23:59:59 2027 GMT\n- **Assessment:** Strong encryption with valid, long-term certificate.\n\n### Security Headers Analysis\n| Header | Present | Recommendation |\n|--------|---------|----------------|\n| HSTS (Strict-Transport-Security) | \u274c No | Configure strict-transport-security header |\n| CSP (Content-Security-Policy) | \u274c No | Configure content-security-policy header |\n| X-Frame-Options (Clickjacking Protection) | \u274c No | Configure x-frame-options header |\n| X-Content-Type-Options (MIME-Sniffing Protection) | \u274c No | Configure x-content-type-options header |\n| Referrer-Policy | \u274c No | Configure referrer-policy header |\n| Permissions-Policy | \u274c No | Configure permissions-policy header |\n\n**Findings:** 0 out of 6 recommended security headers are present. This leaves the site vulnerable to various client-side attacks including clickjacking, MIME sniffing, and insufficient content restrictions.\n\n### Overall Risk Rating: **Medium**\n**Primary Concern:** Missing security headers increase attack surface for client-side exploits despite strong transport encryption.\n\n---\n\n## 2. Sandbox Isolation Verification (gVisor)\n\nThe security analysis was executed within a Google AX sandbox utilizing gVisor for isolation:\n\n- **Kernel Version:** Linux 4.19.0-gvisor #1 SMP Sun Jan 10 15:06:54 PST 2016\n- **gVisor Sentry:** Active\n- **Runtime Engine:** runsc (Google gVisor)\n- **Substrate Worker Pool:** ax-workerpool (ateom-gvisor)\n- **Isolation Level:** Application Kernel Sandbox (Syscall Interception)\n- **Security Finding:** Hardware-level guest kernel isolation active. Host kernel is fully protected from container breakouts.\n\n**Assurance:** The analysis environment provides strong isolation, ensuring that any potentially malicious content from the target website cannot affect the host system or other sandbox tenants.\n\n---\n\n## 3. Recommendations\n\n### Immediate Actions (High Priority)\n1. **Implement Essential Security Headers:**\n   - Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`\n   - Add `Content-Security-Policy: default-src 'self';` (adjust based on site requirements)\n   - Add `X-Frame-Options: DENY` or `SAMEORIGIN`\n   - Add `X-Content-Type-Options: nosniff`\n   - Add `Referrer-Policy: strict-origin-when-cross-origin`\n   - Add `Permissions-Policy: geolocation=(), microphone=(), camera=()`\n\n### Ongoing Maintenance\n2. **Regular Security Header Validation:** Use automated tools to verify header presence after deployments.\n3. **Consider Additional Protections:** \n   - Implement a Web Application Firewall (WAF) for S3 static sites via CloudFront or AWS WAF\n   - Regular vulnerability scanning of dependencies if any dynamic components exist\n   - Monitor certificate expiration and automate renewal\n\n### Note on Hosting\nThe site appears to be hosted on Amazon S3 static website hosting. Security headers can be configured via:\n- **Amazon CloudFront** (recommended for header injection)\n- **S3 static website hosting** with custom error documents (limited header support)\n- **Lambda@Edge** for more complex header injection\n\n---\n\n## 4. Conclusion\nThe website `umeshkhatiwada.com.np` benefits from strong TLS encryption but lacks fundamental HTTP security headers that protect against common client-side vulnerabilities. While the absence of these headers does not constitute a critical vulnerability in isolation, it significantly increases the risk of successful attacks such as clickjacking, cross-site scripting (XSS), and MIME confusion attacks.\n\n**Risk Level:** Medium (due to missing defense-in-layer controls despite strong transport security)\n\nThe analysis was conducted in a securely isolated gVisor sandbox, ensuring the assessment itself posed no risk to the host environment.\n\n---\n*Report Generated: Security Agent in Google AX Sandbox*  \n*Timestamp: Based on live assessment data*"
   },
   "demo-task": {
     "name": "demo-task",
@@ -170,7 +170,7 @@
       "demo-workspace"
     ],
     "registered_at": 1791623650.86444,
-    "last_synced": 1791623650.8644402,
+    "last_synced": 1791628630.6793284,
     "last_report": null
   },
   "simple-task": {
@@ -187,7 +187,7 @@
     "command": [],
     "workspaces": [],
     "registered_at": 1791623650.8712943,
-    "last_synced": 1791623650.8712945,
+    "last_synced": 1791628630.679329,
     "last_report": null
   }
 }
