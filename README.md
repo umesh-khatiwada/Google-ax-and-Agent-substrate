@@ -360,6 +360,57 @@ make five-agents
 
 ---
 
+## OpenClaw Telegram Orchestrator on Google AX
+
+[OpenClaw](https://openclaw.ai) is deployed natively inside the Kind cluster (`openclaw-system` namespace) and bridges **Telegram** to **Google AX** & **Agent Substrate**.
+
+- **Bot Username:** [@openclawaxxbot](https://t.me/openclawaxxbot)
+- **Cluster Deployment:** `deployment.apps/openclaw` in `openclaw-system`
+- **Dynamic Discovery:** Automatically inspects, registers, updates, and prunes Google AX Tasks and Actors in real-time (`openclaw/agent_library.json`).
+- **Autonomous Spinning & Suspension:** Users can request agent executions from Telegram in plain English; OpenClaw identifies the required agent, resumes it in Google AX (`ax resume task`), authorizes Substrate egress, executes MCP tools, returns the synthesized report, and suspends the agent (`ax suspend task`) to preserve cluster resources.
+
+### OpenClaw Features
+
+1. **Dynamic Agent Library:**
+   Periodically (every 15s) queries the Google AX cluster API. Any added or removed tasks/actors in AX are automatically synchronized into the catalog with their role, MCP tools, and live cluster phase.
+2. **Natural Language Intent Routing:**
+   Users can type plain English queries (e.g. *"Can you audit file permissions and CVEs?"* or *"Benchmark CPU and memory throughput"*); OpenClaw routes to the best matching agent (`security-agent`, `perf-agent`, etc.) using keyword and NVIDIA Nemotron LLM intent classification.
+3. **Cluster Isolation:**
+   All agents execute within secure gVisor-isolated sandboxes on the Agent Substrate WorkerPool.
+4. **Interactive Dashboard:**
+   Inline Telegram keyboards allow one-tap execution, cluster monitoring, and report inspection.
+
+### Telegram Commands
+
+| Command | Description |
+|---|---|
+| `/start` | Welcome dashboard with interactive buttons for all agents and cluster views |
+| `/help` | Detailed command guide and usage examples |
+| `/library` or `/agents` | View dynamic Agent Library, registered tools, models, and live phases |
+| `/tasks` | Live tabular view of all Google AX cluster tasks and worker IPs |
+| `/spin <agent> [prompt]` | Resumes the task, runs MCP tools, sends the report, and suspends the actor |
+| `/suspend <agent>` | Explicitly suspends an active agent task |
+| `/report <agent>` | Reads and displays the latest executive report |
+| `/ssh <agent> <cmd>` | Executes an ad-hoc shell command inside the sandbox |
+| `/refresh` | Forces an immediate re-discovery of all tasks into the Agent Library |
+
+### Deploying & Managing OpenClaw
+
+```bash
+# Deploy OpenClaw into the Kind cluster
+make openclaw
+# or:
+./scripts/deploy-openclaw.sh
+
+# Check pod status & Telegram connectivity
+make openclaw-status
+
+# Stream live orchestrator logs
+make openclaw-logs
+```
+
+---
+
 ## CLI Reference
 
 The `ax` CLI connects automatically to the active Kubernetes context:

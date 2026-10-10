@@ -1,0 +1,193 @@
+{
+  "sre-agent": {
+    "name": "sre-agent",
+    "atespace": "default",
+    "actor": "sre-agent",
+    "phase": "Suspended",
+    "worker_ip": "<none>",
+    "role": "sre",
+    "title": "Site Reliability & Health Agent",
+    "description": "Probes system readiness, checks process/service health, and evaluates cluster resilience metrics.",
+    "tools": [
+      {
+        "name": "probe_readiness",
+        "description": "Probes uptime, load averages, and port availability"
+      },
+      {
+        "name": "evaluate_resilience",
+        "description": "Evaluates error recovery rate and crash-loop resilience"
+      }
+    ],
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "command": [
+      "python3",
+      "/workspace/agent_runner.py"
+    ],
+    "workspaces": [
+      "sre-workspace"
+    ],
+    "registered_at": 1791623650.8263783,
+    "last_synced": 1791623650.8263786,
+    "last_report": null
+  },
+  "docs-agent": {
+    "name": "docs-agent",
+    "atespace": "default",
+    "actor": "docs-agent",
+    "phase": "Suspended",
+    "worker_ip": "<none>",
+    "role": "docs",
+    "title": "API & Docs Validator Agent",
+    "description": "Generates OpenAPI 3.1 specifications and validates internal/external markdown documentation links.",
+    "tools": [
+      {
+        "name": "generate_openapi_spec",
+        "description": "Generates OpenAPI specification from endpoints and models"
+      },
+      {
+        "name": "validate_markdown_links",
+        "description": "Validates local and external markdown links in docs"
+      }
+    ],
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "command": [
+      "python3",
+      "/workspace/agent_runner.py"
+    ],
+    "workspaces": [
+      "docs-workspace"
+    ],
+    "registered_at": 1791623650.8336494,
+    "last_synced": 1791623650.8336494,
+    "last_report": null
+  },
+  "perf-agent": {
+    "name": "perf-agent",
+    "atespace": "default",
+    "actor": "perf-agent",
+    "phase": "Suspended",
+    "worker_ip": "<none>",
+    "role": "perf",
+    "title": "Performance Profiler Agent",
+    "description": "Samples runtime memory allocations, benchmarks CPU compute throughput, and detects bottlenecks.",
+    "tools": [
+      {
+        "name": "sample_memory_profile",
+        "description": "Profiles current virtual memory, RSS, and heap usage"
+      },
+      {
+        "name": "benchmark_cpu",
+        "description": "Benchmarks CPU floating point throughput and latency"
+      }
+    ],
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "command": [
+      "python3",
+      "/workspace/agent_runner.py"
+    ],
+    "workspaces": [
+      "perf-workspace"
+    ],
+    "registered_at": 1791623650.8409843,
+    "last_synced": 1791623650.8409846,
+    "last_report": null
+  },
+  "linter-agent": {
+    "name": "linter-agent",
+    "atespace": "default",
+    "actor": "linter-agent",
+    "phase": "Suspended",
+    "worker_ip": "<none>",
+    "role": "linter",
+    "title": "Code Quality & Linter Agent",
+    "description": "Performs static syntax analysis, flake8/pep8 checks, and computes cyclomatic code complexity.",
+    "tools": [
+      {
+        "name": "check_python_syntax",
+        "description": "Scans Python source files for AST syntax errors and formatting"
+      },
+      {
+        "name": "analyze_complexity",
+        "description": "Computes cyclomatic complexity across modules and functions"
+      }
+    ],
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "command": [
+      "python3",
+      "/workspace/agent_runner.py"
+    ],
+    "workspaces": [
+      "linter-workspace"
+    ],
+    "registered_at": 1791623650.8483684,
+    "last_synced": 1791623650.8483686,
+    "last_report": null
+  },
+  "security-agent": {
+    "name": "security-agent",
+    "atespace": "default",
+    "actor": "security-agent",
+    "phase": "Suspended",
+    "worker_ip": "<none>",
+    "role": "security",
+    "title": "Security Auditor Agent",
+    "description": "Audits file permissions, sudoers configurations, and checks known CVE vulnerability database.",
+    "tools": [
+      {
+        "name": "audit_permissions",
+        "description": "Audits sensitive file permissions across workspace"
+      },
+      {
+        "name": "scan_cve_database",
+        "description": "Scans package and kernel CVE database for vulnerabilities"
+      }
+    ],
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "command": [
+      "python3",
+      "/workspace/agent_runner.py"
+    ],
+    "workspaces": [
+      "security-workspace"
+    ],
+    "registered_at": 1791623650.8561056,
+    "last_synced": 1791623650.8561058,
+    "last_report": null
+  },
+  "demo-task": {
+    "name": "demo-task",
+    "atespace": "default",
+    "actor": "demo-task",
+    "phase": "Running",
+    "worker_ip": "10.244.0.21",
+    "role": "general",
+    "title": "Demo-task Agent",
+    "description": "Autonomous Google AX Task Actor running command: default",
+    "tools": [],
+    "model": "default",
+    "command": [],
+    "workspaces": [
+      "demo-workspace"
+    ],
+    "registered_at": 1791623650.86444,
+    "last_synced": 1791623650.8644402,
+    "last_report": null
+  },
+  "simple-task": {
+    "name": "simple-task",
+    "atespace": "default",
+    "actor": "simple-task",
+    "phase": "Running",
+    "worker_ip": "10.244.0.21",
+    "role": "general",
+    "title": "Simple-task Agent",
+    "description": "Autonomous Google AX Task Actor running command: default",
+    "tools": [],
+    "model": "default",
+    "command": [],
+    "workspaces": [],
+    "registered_at": 1791623650.8712943,
+    "last_synced": 1791623650.8712945,
+    "last_report": null
+  }
+}

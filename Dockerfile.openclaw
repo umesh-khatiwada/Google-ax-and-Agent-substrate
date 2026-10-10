@@ -1,0 +1,23 @@
+FROM localhost:5001/ax/ax-task-runner:latest
+
+# Install CLI binaries
+COPY bin/kubectl /usr/local/bin/kubectl
+COPY bin/ax /usr/local/bin/ax
+COPY bin/kubectl-ate /usr/local/bin/kubectl-ate
+RUN chmod +x /usr/local/bin/kubectl /usr/local/bin/ax /usr/local/bin/kubectl-ate
+
+# Install Python requirements
+COPY bin/wheels/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl /tmp/
+RUN pip install --no-cache-dir /tmp/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl && rm -f /tmp/*.whl
+
+WORKDIR /app
+
+# Copy project manifests and OpenClaw code
+COPY manifests /app/manifests
+COPY openclaw /app/openclaw
+
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    AX_SERVER="http://ax-server.ax-system.svc.cluster.local:8080"
+
+ENTRYPOINT ["python3", "-m", "openclaw.main"]

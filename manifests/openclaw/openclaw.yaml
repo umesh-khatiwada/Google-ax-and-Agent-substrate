@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openclaw
+  namespace: openclaw-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openclaw-cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: openclaw
+    namespace: openclaw-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw
+  namespace: openclaw-system
+  labels:
+    app: openclaw
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw
+  template:
+    metadata:
+      labels:
+        app: openclaw
+    spec:
+      serviceAccountName: openclaw
+      containers:
+        - name: openclaw
+          image: localhost:5001/openclaw/openclaw:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TELEGRAM_BOT_TOKEN
+              value: "YOUR_TELEGRAM_BOT_TOKEN"
+            - name: OPENAI_BASE_URL
+              value: "https://integrate.api.nvidia.com/v1"
+            - name: OPENAI_API_KEY
+              value: "YOUR_NVIDIA_API_KEY"
+            - name: MODEL_NAME
+              value: "nvidia/nemotron-3-super-120b-a12b"
+            - name: AX_SERVER
+              value: "http://ax-server.ax-system.svc.cluster.local:8080"
+            - name: SYNC_INTERVAL
+              value: "15"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

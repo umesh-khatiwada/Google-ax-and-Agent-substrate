@@ -16,3 +16,9 @@ bin/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Python cache & logs
+__pycache__/
+*.pyc
+*.pyo
+logs/
